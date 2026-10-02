@@ -1,0 +1,1321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulation Engineering Toolkit 02 — Rust and Python: Porting a Simulator Core with PyO3</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;700&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&family=Geist+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #1c1815;
+            --bg-card: #231e1a;
+            --bg-code: #2b2520;
+            --text-primary: #efe8dc;
+            --text-secondary: #a2978b;
+            --accent: #aabd59;
+            --accent-dim: #aabd5944;
+            --accent-glow: #aabd5933;
+            --border: #3a322b;
+            --font-display: 'Bricolage Grotesque', sans-serif;
+            --font-mono: 'Geist Mono', 'Geist Mono', monospace;
+            --font-body: 'Instrument Sans', sans-serif;
+            --max-width: 900px;
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: var(--font-body);
+            font-size: 17px;
+            line-height: 1.7;
+            overflow-x: hidden;
+        }
+
+        /* ── Header ── */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem 1.5rem;
+            text-align: center;
+            position: relative;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .hero > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        .series-label {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--accent);
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+        }
+
+        .hero h1 {
+            font-family: var(--font-display);
+            font-size: clamp(2rem, 5vw, 3.2rem);
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1.2;
+            margin-bottom: 1rem;
+        }
+
+        .hero h1 .accent {
+            color: var(--accent);
+        }
+
+        .hero .subtitle {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin-bottom: 2rem;
+        }
+
+        /* ── Tag Pills ── */
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+            margin-bottom: 2.5rem;
+        }
+
+        .tag {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            background: var(--accent-dim);
+            white-space: nowrap;
+        }
+
+        /* ── Pipeline Flow Bar ── */
+        .pipeline {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 0.25rem;
+            margin-bottom: 1rem;
+            max-width: var(--max-width);
+        }
+
+        .pipeline-step {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            padding: 0.3rem 0.7rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+
+        .pipeline-arrow {
+            color: var(--accent);
+            font-size: 0.9rem;
+            font-weight: 700;
+        }
+
+        /* ── Slides ── */
+        .slide {
+            min-height: 100vh;
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 4rem 1.5rem;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .slide-number {
+            font-family: var(--font-display);
+            font-size: 5rem;
+            font-weight: 700;
+            color: var(--accent-dim);
+            position: absolute;
+            top: 2rem;
+            right: 1.5rem;
+            line-height: 1;
+            user-select: none;
+        }
+
+        .slide h2 {
+            font-family: var(--font-display);
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 1.5rem;
+            line-height: 1.25;
+        }
+
+        .slide h3 {
+            font-family: var(--font-display);
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .slide p {
+            margin-bottom: 1rem;
+            color: var(--text-secondary);
+        }
+
+        .slide p strong {
+            color: var(--text-primary);
+        }
+
+        .slide ul, .slide ol {
+            margin-bottom: 1rem;
+            padding-left: 1.5rem;
+            color: var(--text-secondary);
+        }
+
+        .slide li {
+            margin-bottom: 0.4rem;
+        }
+
+        .slide li strong {
+            color: var(--text-primary);
+        }
+
+        /* ── Code Blocks ── */
+        .code-block {
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin: 1.25rem 0;
+            overflow: hidden;
+        }
+
+        .code-header {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--accent);
+            background: rgba(170,189,89,0.08);
+            padding: 0.4rem 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .code-block pre {
+            margin: 0;
+            padding: 1rem;
+            overflow-x: auto;
+        }
+
+        .code-block code {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            line-height: 1.6;
+            color: #dad1c5;
+        }
+
+        /* Syntax highlighting (manual) */
+        .kw { color: #de805a; }
+        .fn { color: #d7bbdf; }
+        .str { color: #bcdbd4; }
+        .cm { color: #a2978b; font-style: italic; }
+        .num { color: #97cdc6; }
+        .type { color: #e3b174; }
+        .dir { color: #de805a; }
+        .mac { color: #e3b174; }
+
+        /* ── Tables ── */
+        .table-wrap {
+            overflow-x: auto;
+            margin: 1.25rem 0;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        th {
+            background: var(--bg-code);
+            color: var(--accent);
+            font-weight: 600;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            font-family: var(--font-display);
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 0.6rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:nth-child(even) td {
+            background: rgba(35,30,26,0.5);
+        }
+
+        /* ── Diagrams ── */
+        .diagram-flow {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .diagram-box {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            padding: 0.5rem 1rem;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .diagram-box.accent {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: rgba(170,189,89,0.08);
+        }
+
+        .diagram-box.dim {
+            color: var(--text-secondary);
+            border-color: var(--border);
+        }
+
+        .diagram-arrow {
+            color: var(--accent);
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+
+        /* Vertical flow diagrams */
+        .diagram-vertical {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.3rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .diagram-vertical .diagram-arrow {
+            font-size: 1.1rem;
+        }
+
+        /* Nested hierarchy diagram */
+        .hierarchy {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .hierarchy-level {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .hierarchy-label {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            min-width: 80px;
+            text-align: right;
+        }
+
+        .hierarchy-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+        }
+
+        .hierarchy-item {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            padding: 0.3rem 0.6rem;
+            border-radius: 4px;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+
+        .hierarchy-item.accent {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: rgba(170,189,89,0.08);
+        }
+
+        /* Grid diagram */
+        .diagram-grid {
+            display: grid;
+            gap: 0.75rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .diagram-grid.cols-2 {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .diagram-grid.cols-3 {
+            grid-template-columns: 1fr 1fr 1fr;
+        }
+
+        .diagram-panel {
+            padding: 1rem;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+
+        .diagram-panel.accent-border {
+            border-left: 3px solid var(--accent);
+        }
+
+        .diagram-panel h4 {
+            font-family: var(--font-display);
+            font-size: 1rem;
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+        }
+
+        .diagram-panel p, .diagram-panel ul {
+            font-size: 0.85rem;
+        }
+
+        /* ── Callout Boxes ── */
+        .callout {
+            background: var(--bg-card);
+            border-left: 3px solid var(--accent);
+            border-radius: 0 8px 8px 0;
+            padding: 1rem 1.25rem;
+            margin: 1.25rem 0;
+        }
+
+        .callout p {
+            margin-bottom: 0;
+        }
+
+        .callout .callout-label {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.3rem;
+        }
+
+        /* ── Tier Visual ── */
+        .tier-visual {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .tier-bar {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .tier-label {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            min-width: 90px;
+            text-align: right;
+        }
+
+        .tier-fill {
+            height: 32px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            padding: 0 0.75rem;
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            white-space: nowrap;
+            transition: width 0.6s ease;
+        }
+
+        .tier-cost {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            min-width: 70px;
+        }
+
+        /* ── Contents list ── */
+        .contents-list {
+            list-style: none;
+            padding-left: 0;
+            counter-reset: contents;
+        }
+
+        .contents-list li {
+            counter-increment: contents;
+            padding: 0.6rem 0;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .contents-list li:last-child {
+            border-bottom: none;
+        }
+
+        .contents-list li::before {
+            content: counter(contents, decimal-leading-zero);
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--accent);
+            min-width: 2rem;
+        }
+
+        .contents-list a {
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .contents-list a:hover {
+            color: var(--accent);
+        }
+
+        /* ── Footer ── */
+        .footer {
+            text-align: center;
+            padding: 3rem 1.5rem;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            border-top: 1px solid var(--border);
+            max-width: var(--max-width);
+            margin: 0 auto;
+        }
+
+        .footer a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 640px) {
+            .slide {
+                padding: 3rem 1rem;
+                min-height: auto;
+            }
+
+            .slide-number {
+                font-size: 3rem;
+                top: 1.5rem;
+                right: 1rem;
+            }
+
+            .slide h2 {
+                font-size: 1.5rem;
+            }
+
+            .diagram-grid.cols-2,
+            .diagram-grid.cols-3 {
+                grid-template-columns: 1fr;
+            }
+
+            .pipeline {
+                gap: 0.15rem;
+            }
+
+            .pipeline-step {
+                font-size: 0.6rem;
+                padding: 0.2rem 0.4rem;
+            }
+
+            .hero h1 {
+                font-size: 1.8rem;
+            }
+
+            table {
+                font-size: 0.78rem;
+            }
+
+            .tier-label {
+                min-width: 60px;
+                font-size: 0.65rem;
+            }
+
+            .tier-fill {
+                font-size: 0.6rem;
+                height: 26px;
+            }
+        }
+
+        /* ── Interactive controls (added for Local LLM series) ── */
+        .control-panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            margin: 1.25rem 0;
+        }
+        .control-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+        .control-row label {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            min-width: 180px;
+        }
+        .control-row input[type="range"] {
+            flex: 1;
+            min-width: 160px;
+            accent-color: var(--accent);
+        }
+        .control-row input[type="number"],
+        .control-row select {
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            border-radius: 4px;
+            padding: 0.3rem 0.5rem;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+        }
+        .control-row .val {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--accent);
+            min-width: 80px;
+            text-align: right;
+        }
+        .btn {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            padding: 0.4rem 0.9rem;
+            background: var(--accent-dim);
+            color: var(--accent);
+            border: 1px solid var(--accent);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+        .btn:hover { background: rgba(170,189,89,0.2); }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn.secondary {
+            background: var(--bg-code);
+            color: var(--text-secondary);
+            border-color: var(--border);
+        }
+        .result-box {
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--accent);
+            border-radius: 4px;
+            padding: 0.75rem 1rem;
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--text-primary);
+            margin-top: 0.75rem;
+        }
+        .result-box .line-label { color: var(--text-secondary); }
+        .result-box .line-val   { color: var(--accent); font-weight: 600; }
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+        }
+        .metric {
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.6rem 0.8rem;
+            text-align: center;
+        }
+        .metric .metric-label {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .metric .metric-value {
+            font-family: var(--font-display);
+            font-size: 1.25rem;
+            color: var(--accent);
+            font-weight: 600;
+            margin-top: 0.2rem;
+        }
+
+        /* Canvas / SVG containers */
+        .canvas-wrap {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1.25rem 0;
+            overflow-x: auto;
+        }
+        .canvas-wrap canvas,
+        .canvas-wrap svg {
+            display: block;
+            margin: 0 auto;
+            max-width: 100%;
+        }
+
+        /* Small inline badge */
+        .badge {
+            display: inline-block;
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            padding: 0.1rem 0.45rem;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            vertical-align: middle;
+            margin-left: 0.3rem;
+        }
+        .badge.ok    { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+        .badge.warn  { border-color: #e3b174; color: #e3b174; background: rgba(227,177,116,0.08); }
+        .badge.bad   { border-color: #de805a; color: #de805a; background: rgba(222,128,90,0.08); }
+
+
+        /* ── LLM Inference Simulators additions ── */
+        .canvas-wrap canvas { image-rendering: auto; display: block; width: 100%; height: auto; }
+        .canvas-wrap svg { max-width: 100%; height: auto; }
+        .ladder { display: grid; gap: 0.4rem; margin: 1.25rem 0; }
+        .ladder-row {
+            display: grid; grid-template-columns: 11rem 1fr 7.5rem; gap: 0.75rem; align-items: center;
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px;
+            padding: 0.55rem 0.85rem; font-size: 0.88rem;
+        }
+        .ladder-row .rung { font-family: var(--font-display); font-weight: 600; color: var(--accent); }
+        .ladder-row .speed { font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-secondary); text-align: right; }
+        .res-list { list-style: none; padding: 0; margin: 0.75rem 0; }
+        .res-list li { padding: 0.6rem 0; border-bottom: 1px solid var(--border); font-size: 0.92rem; }
+        .res-list li:last-child { border-bottom: none; }
+        .res-list .what { color: var(--text-secondary); display: block; font-size: 0.86rem; margin-top: 0.15rem; }
+        .res-list a { color: var(--accent); text-decoration: none; }
+        .res-list a:hover { text-decoration: underline; }
+        .qa { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; margin: 0.6rem 0; padding: 0.2rem 1rem; }
+        .qa summary { cursor: pointer; padding: 0.6rem 0; font-weight: 600; }
+        .qa p, .qa ul { margin-bottom: 0.75rem; font-size: 0.92rem; }
+        .sim-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 0.4rem 1.25rem; }
+        .chart-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; }
+        .chart-title { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.3rem; }
+        .slide a { color: var(--accent); }
+        @media (max-width: 640px) {
+            .ladder-row { grid-template-columns: 1fr; gap: 0.2rem; }
+            .ladder-row .speed { text-align: left; }
+        }
+        .concepts { background: var(--bg-card); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 6px; padding: 0.75rem 1rem; margin-top: 1.25rem; font-size: 0.88rem; }
+        .concepts p { margin: 0 0 0.4rem; color: var(--text-secondary); }
+        .concepts .chips { display: flex; flex-wrap: wrap; gap: 0.35rem 0.5rem; }
+        .concepts .chips a { border: 1px solid var(--border); border-radius: 999px; padding: 0.1rem 0.6rem; text-decoration: none; font-size: 0.82rem; }
+        .concepts .chips a:hover { border-color: var(--accent); }
+        /* ── Simulation Engineering Toolkit additions ── */
+        .code-header a.src-link { color: var(--text-secondary); text-decoration: none; float: right; }
+        .code-header a.src-link:hover { color: var(--accent); text-decoration: underline; }
+        p.src { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-secondary); margin: -0.75rem 0 1rem; }
+        p.src a { color: var(--text-secondary); }
+        .control-panel select, .control-panel input[type=number] { background: var(--bg-code); color: var(--text-primary); border: 1px solid var(--border); border-radius: 4px; padding: 0.2rem 0.4rem; font-family: var(--font-mono); font-size: 0.8rem; }
+        .mut-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0.4rem 1rem; font-size: 0.85rem; }
+        .mut-grid label { display: flex; gap: 0.5rem; align-items: baseline; cursor: pointer; }
+        .mut-list { font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.7; }
+        .mut-list .killed { color: var(--accent); }
+        .mut-list .survived { color: #de805a; }
+        .hero { overflow: hidden; }   /* the 600px glow must not widen the page on phones */
+        .chart-pair > *, .diagram-grid > *, .sim-grid > * { min-width: 0; }   /* let wide code scroll inside its column */
+        .slide p code, .slide li code, .slide td code { overflow-wrap: anywhere; }
+        .control-panel select { max-width: 100%; }
+    </style>
+</head>
+<body>
+
+<header class="hero">
+    <div class="series-label">Simulation Engineering Toolkit &mdash; Presentation 02</div>
+    <h1>Rust &harr; Python: Porting a Simulator Core with <span class="accent">PyO3</span></h1>
+    <p class="subtitle">Moving the core of a SimPy simulator into Rust without changing a single answer: when a rewrite pays and when it does not, PyO3 and maturin, what should cross the boundary, releasing the GIL, everything it took to be bit-exact (operation order, SimPy's event order, fsum, Python's random stream, a JSON-parsing trap), differential and golden tests, and measured speed-ups.</p>
+
+    <div class="tags">
+        <span class="tag">PyO3</span>
+        <span class="tag">maturin</span>
+        <span class="tag">GIL</span>
+        <span class="tag">Bit-exact</span>
+        <span class="tag">Differential tests</span>
+        <span class="tag">Speed-ups</span>
+    </div>
+
+    <div class="pipeline">
+        <span class="pipeline-step">Profile</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">Port</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">Bind</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">Diff-test</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">Measure</span>
+    </div>
+</header>
+
+<section class="slide" id="slide-00">
+    <div class="slide-number">00</div>
+    <h2>Topics We'll Cover</h2>
+    <ul class="contents-list">
+        <li><a href="#slide-01">Should You Port at All?</a></li>
+        <li><a href="#slide-02">The Shape of a Mixed Rust and Python Project</a></li>
+        <li><a href="#slide-03">PyO3 and maturin in Practice</a></li>
+        <li><a href="#slide-04">What Crosses the Boundary</a></li>
+        <li><a href="#slide-05">Releasing the GIL</a></li>
+        <li><a href="#slide-06">Bit-Exact: The Parity Checklist</a></li>
+        <li><a href="#slide-07">Reproducing Python's Random Numbers</a></li>
+        <li><a href="#slide-08">Three Traps That Cost One ulp</a></li>
+        <li><a href="#slide-09">Testing the Port: Golden and Differential</a></li>
+        <li><a href="#slide-10">Measured: Speed-Ups</a></li>
+        <li><a href="#slide-11">Interactive: What Should You Port?</a></li>
+        <li><a href="#slide-12">Packaging and CI</a></li>
+        <li><a href="#slide-13">What to Take Away</a></li>
+    </ul>
+    <div class="concepts">
+        <p><strong>Concepts used here, and where they are explained.</strong> Each links to a glossary entry: this <a href="https://brendanjameslynskey.github.io/SimEng_Hub_Toolkit/#glossary">series glossary</a>, or the glossaries of LLM Inference Simulators and FHE Accelerator Simulators for concepts those series already explain.</p>
+        <div class="chips"><a href="https://brendanjameslynskey.github.io/LLM_Hub_Inference_Simulators/#g-profiling" title="Measure before optimising (cProfile, py-spy, perf). Time usually goes to model code that runs per entity per step, not to the event kernel.">Profiling a simulator</a><a href="https://brendanjameslynskey.github.io/SimEng_Hub_Toolkit/#g-amdahl" title="Speeding up part of a program speeds up the whole only in proportion to that part&#x27;s share of the time. After porting a simulator&#x27;s engine, the Python code around it can dominate.">Amdahl's law for a port</a><a href="https://brendanjameslynskey.github.io/SimEng_Hub_Toolkit/#g-pyo3" title="PyO3 generates the CPython bindings for Rust functions marked #[pyfunction]; maturin builds and installs them as a Python wheel, alongside any pure-Python code.">PyO3 and maturin</a><a href="https://brendanjameslynskey.github.io/SimEng_Hub_Toolkit/#g-boundary" title="Every call from Python into Rust converts its arguments and results. A good boundary is coarse (one call per simulation) and plain (numbers, tuples, strings), and its cost is measured.">The language boundary</a><a href="https://brendanjameslynskey.github.io/SimEng_Hub_Toolkit/#g-gil" title="CPython&#x27;s global interpreter lock lets one thread run Python at a time. Rust code that touches no Python objects can release it (py.detach, formerly allow_threads), so Python threads run simulations in parallel.">The GIL and releasing it</a><a href="https://brendanjameslynskey.github.io/SimEng_Hub_Toolkit/#g-bitexact" title="Two implementations that produce identical floating-point results, bit for bit. It requires the same operations in the same order, the same event order and the same library functions, and it turns any discrepancy into a located bug.">Bit-exact parity</a><a href="https://brendanjameslynskey.github.io/SimEng_Hub_Toolkit/#g-tiebreak" title="Events at equal times are ordered by priority (SimPy&#x27;s URGENT before NORMAL) and then by a sequence number (first scheduled, first served), so the same inputs always give the same event order and the same answers.">Deterministic tie-breaking</a><a href="https://brendanjameslynskey.github.io/SimEng_Hub_Toolkit/#g-fsum" title="math.fsum returns the exactly rounded sum of its inputs; statistics.fmean uses it. A plain loop accumulates rounding error, so a port must reproduce the algorithm, not just add.">Correctly rounded summation (math.fsum)</a><a href="https://brendanjameslynskey.github.io/SimEng_Hub_Toolkit/#g-mt19937" title="CPython&#x27;s generator is the Mersenne Twister, seeded with init_by_array; random() combines two 32-bit outputs into a 53-bit float, and the variates are written in Python, so the whole stream can be reproduced exactly.">MT19937 and Python's random module</a><a href="https://brendanjameslynskey.github.io/SimEng_Hub_Toolkit/#g-golden" title="Store the output of a reference run and fail when today&#x27;s differs; re-bless (rewrite the stored output) deliberately, with the diff reviewed alongside the change that caused it.">Golden tests and re-blessing</a><a href="https://brendanjameslynskey.github.io/LLM_Hub_Inference_Simulators/#g-differential" title="Requiring two independent implementations to agree exactly on the same input: here the fast path against the baseline, and the browser JavaScript against the Python simulator.">Differential testing</a><a href="https://brendanjameslynskey.github.io/LLM_Hub_Inference_Simulators/#g-hypothesis" title="Generate many random configurations and check that invariants hold for all of them; Hypothesis shrinks any failure to a minimal example.">Property-based testing (Hypothesis)</a><a href="https://brendanjameslynskey.github.io/SimEng_Hub_Toolkit/#g-abi3" title="Extension modules built against CPython&#x27;s stable ABI work on every later Python version, so one wheel per platform suffices. The free-threaded build has its own ABI and is not covered.">abi3 wheels</a><a href="https://brendanjameslynskey.github.io/LLM_Hub_Inference_Simulators/#g-parallelruns" title="Independent runs parallelise trivially (processes, job arrays), but each technique only speeds up the share of time it touches; serial overheads cap the gain.">Parallel runs and Amdahl's law</a></div>
+    </div>
+</section>
+
+<section class="slide" id="slide-01">
+    <div class="slide-number">01</div>
+    <h2>Should You Port at All?</h2>
+    <p>A rewrite is the most expensive way to make a simulator faster. <a href="https://brendanjameslynskey.github.io/InfSim_08_Accelerating_Simulators/#slide-02">LLM Inference Simulators 08</a> puts it last for a reason: profile first, then try fewer events, cheaper events and parallel runs. Disaggregated_Inference_Sim's exact fast path already halves the run time in pure Python. Port when what remains is still too slow <em>and</em> the model has stopped changing every week.</p>
+    <div class="table-wrap"><table>
+        <thead><tr><th>Port the core when&hellip;</th><th>Do not port yet when&hellip;</th></tr></thead>
+        <tbody>
+            <tr><td>Profiling shows the event loop and cost model dominate</td><td>Time goes on I/O, analysis or plotting</td></tr>
+            <tr><td>The model is validated and its interface is stable</td><td>The physics is still being argued about; every change would be made twice</td></tr>
+            <tr><td>Thousands of runs a night are needed (sweeps, search, CI)</td><td>A few runs a day, and a coffee is a fine wait</td></tr>
+            <tr><td>A Python reference exists to test the port against</td><td>There is nothing to check the port's answers with</td></tr>
+            <tr><td>Someone on the team will maintain the Rust</td><td>The port would be one person's island</td></tr>
+        </tbody>
+    </table></div>
+    <div class="callout">
+        <div class="callout-label">What this deck ports</div>
+        <p>The engine, roofline cost model (with DVFS and power caps), workload generator and metrics of <a href="https://github.com/BrendanJamesLynskey/Disaggregated_Inference_Sim">Disaggregated_Inference_Sim</a>, into <a href="https://github.com/BrendanJamesLynskey/Rust_DES_Kernel">Rust_DES_Kernel</a>. Python stays in charge of configuration, the reference model and analysis. The requirement: identical answers, to the last bit.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-02">
+    <div class="slide-number">02</div>
+    <h2>The Shape of a Mixed Rust and Python Project</h2>
+    <div class="canvas-wrap">
+        <svg viewBox="0 0 720 250" width="720" height="250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Layers: user Python code, the rust_des wrapper, the _native PyO3 extension, the Rust crate; Disaggregated_Inference_Sim is the reference used by the tests">
+            <style>
+                .lb { fill: #2b2520; stroke: #aabd59; stroke-width: 1.5; }
+                .lb2 { fill: #2b2520; stroke: #e3b174; stroke-width: 1.5; }
+                .lt { fill: #efe8dc; font-family: 'Geist Mono', monospace; font-size: 11px; }
+                .ld { fill: #a2978b; font-family: 'Geist Mono', monospace; font-size: 10px; }
+                .lh { fill: #aabd59; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 600; font-size: 13px; }
+                .la { stroke: #e3b174; stroke-width: 1.3; fill: none; marker-end: url(#larr); }
+            </style>
+            <defs><marker id="larr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#e3b174"/></marker></defs>
+            <text x="10" y="18" class="lh">One repository, one wheel, two languages</text>
+            <rect x="20" y="32" width="380" height="40" rx="6" class="lb"/><text x="32" y="50" class="lt">your notebook / sweep script</text><text x="32" y="64" class="ld">rust_des.simulate(SimConfig(...), rows)</text>
+            <rect x="20" y="84" width="380" height="40" rx="6" class="lb"/><text x="32" y="102" class="lt">python/rust_des/__init__.py</text><text x="32" y="116" class="ld">thin wrapper: SimConfig to JSON, results to a dataclass</text>
+            <rect x="20" y="136" width="380" height="40" rx="6" class="lb"/><text x="32" y="154" class="lt">src/python.rs  -&gt;  rust_des._native (PyO3)</text><text x="32" y="168" class="ld">converts plain data; releases the GIL; maps errors</text>
+            <rect x="20" y="188" width="380" height="48" rx="6" class="lb"/><text x="32" y="206" class="lt">src/kernel.rs, src/disagg/*.rs</text><text x="32" y="222" class="ld">pure Rust: no Python types; cargo test and the CLI use it too</text>
+            <path d="M210,72 L210,82" class="la"/><path d="M210,124 L210,134" class="la"/><path d="M210,176 L210,186" class="la"/>
+            <rect x="460" y="60" width="240" height="70" rx="6" class="lb2"/><text x="472" y="80" class="lt">Disaggregated_Inference_Sim</text><text x="472" y="96" class="ld">the SimPy reference model</text><text x="472" y="112" class="ld">(a dev dependency only)</text>
+            <rect x="460" y="150" width="240" height="70" rx="6" class="lb2"/><text x="472" y="170" class="lt">pytests/, tests/fixtures/</text><text x="472" y="186" class="ld">differential tests (live) and</text><text x="472" y="202" class="ld">golden files (recorded)</text>
+            <path d="M580,132 L580,148" class="la"/><path d="M458,185 C430,185 430,160 402,158" class="la"/>
+        </svg>
+    </div>
+    <p>The crucial line is the bottom box: the Rust core never sees a Python type. That keeps it testable with <code>cargo test</code> alone, usable from a Rust CLI, and free to run with the GIL released. maturin's "mixed" layout puts the Python wrapper next to the compiled module:</p>
+    <div class="code-block">
+        <div class="code-header">pyproject.toml: one setting tells maturin where the Python half lives <a class="src-link" href="https://github.com/BrendanJamesLynskey/Rust_DES_Kernel/blob/main/pyproject.toml">source</a></div>
+        <pre><code>[tool.maturin]
+features = [<span class="str">"python"</span>]
+python-source = <span class="str">"python"</span>
+module-name = <span class="str">"rust_des._native"</span></code></pre>
+    </div>
+</section>
+
+<section class="slide" id="slide-03">
+    <div class="slide-number">03</div>
+    <h2>PyO3 and maturin in Practice</h2>
+    <p><a href="https://pyo3.rs">PyO3</a> generates the CPython glue from attributes on ordinary Rust functions; <a href="https://www.maturin.rs">maturin</a> builds and installs the result as a wheel. Argument and return types are converted automatically: a Python list of tuples arrives as <code>Vec&lt;(f64, i64, i64)&gt;</code>.</p>
+    <div class="code-block">
+        <div class="code-header">src/python.rs: a #[pyfunction] with keyword defaults <a class="src-link" href="https://github.com/BrendanJamesLynskey/Rust_DES_Kernel/blob/main/src/python.rs">source</a></div>
+        <pre><code><span class="cm">/// `poisson_workload` with Python's own random stream: the same rows as</span>
+<span class="cm">/// `disagg_sim.workload.poisson_workload` for the same arguments.</span>
+#[pyfunction]
+#[<span class="fn">pyo3</span>(signature = (rate, n, prompt_mean, prompt_cv, output_mean, output_cv, seed=<span class="num">0</span>))]
+<span class="kw">fn</span> <span class="fn">poisson_workload</span>(
+    rate: f64,
+    n: usize,
+    prompt_mean: f64,
+    prompt_cv: f64,
+    output_mean: f64,
+    output_cv: f64,
+    seed: u64,
+) -&gt; <span class="type">Vec</span>&lt;<span class="type">Row</span>&gt; {
+    disagg::<span class="fn">poisson_workload</span>(
+        rate,
+        n,
+        <span class="type">LengthDist</span>::<span class="fn">new</span>(prompt_mean, prompt_cv),
+        <span class="type">LengthDist</span>::<span class="fn">new</span>(output_mean, output_cv),
+        seed,
+    )
+    .<span class="fn">into_iter</span>()
+    .<span class="fn">map</span>(|r| (r.arrival, r.prompt_len, r.output_len))
+    .<span class="fn">collect</span>()
+}</code></pre>
+    </div>
+    <div class="code-block">
+        <div class="code-header">src/python.rs: the module <a class="src-link" href="https://github.com/BrendanJamesLynskey/Rust_DES_Kernel/blob/main/src/python.rs">source</a></div>
+        <pre><code><span class="cm">/// Rust core of rust_des: a bit-exact port of Disaggregated_Inference_Sim's engine.</span>
+#[pymodule]
+<span class="kw">fn</span> <span class="fn">_native</span>(m: &amp;<span class="type">Bound</span>&lt;'_, <span class="type">PyModule</span>&gt;) -&gt; <span class="type">PyResult</span>&lt;()&gt; {
+    m.<span class="fn">add_function</span>(<span class="mac">wrap_pyfunction!</span>(simulate_json, m)?)?;
+    m.<span class="fn">add_function</span>(<span class="mac">wrap_pyfunction!</span>(simulate_many_json, m)?)?;
+    m.<span class="fn">add_function</span>(<span class="mac">wrap_pyfunction!</span>(poisson_workload, m)?)?;
+    m.<span class="fn">add</span>(<span class="str">"__version__"</span>, <span class="mac">env!</span>(<span class="str">"CARGO_PKG_VERSION"</span>))?;
+    <span class="type">Ok</span>(())
+}</code></pre>
+    </div>
+    <div class="code-block"><div class="code-header">The development loop</div><pre><code>pip install maturin
+maturin develop --release -E dev    <span class="cm"># compile, install into the venv, plus test extras</span>
+pytest pytests                      <span class="cm"># Python-side tests import rust_des like any package</span>
+maturin build --release             <span class="cm"># a wheel for distribution</span></code></pre></div>
+    <div class="callout">
+        <div class="callout-label">Versions move: check the guide</div>
+        <p>This code uses PyO3 0.29. Names changed recently: <code>Python::allow_threads</code> became <code>Python::detach</code> and <code>Python::with_gil</code> became <code>Python::attach</code> in 0.26 (<a href="https://github.com/PyO3/pyo3/blob/main/CHANGELOG.md">changelog</a>). Older tutorials use the old names.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-04">
+    <div class="slide-number">04</div>
+    <h2>What Crosses the Boundary</h2>
+    <p>Every value that crosses from Python to Rust is converted, and every call has a fixed cost. So the boundary should be <strong>coarse</strong> (one call per simulation, never one per event) and <strong>plain</strong> (numbers, tuples, strings; no Python objects held by Rust).</p>
+    <div class="diagram-grid cols-3">
+        <div class="diagram-panel"><h4>In</h4><p>The configuration as a JSON string (names of presets, numbers), and the workload as a list of <code>(arrival, prompt_len, output_len)</code> tuples.</p></div>
+        <div class="diagram-panel"><h4>Out</h4><p>One tuple of six timestamps per request, the summary as JSON, the event count, and the time spent in Rust.</p></div>
+        <div class="diagram-panel"><h4>Never</h4><p>Callbacks into Python during a run, Python objects inside the engine, or per-event logging across the boundary.</p></div>
+    </div>
+    <p>The wrapper times each part of a call, so the cost of the boundary is measured, not guessed:</p>
+    <div class="table-wrap"><table>
+<thead><tr><th>Workload</th><th>Rust simulate</th><th>Rust summarise</th><th>Boundary (conversion)</th><th>Python <code>summarise()</code></th></tr></thead>
+<tbody>
+<tr><td>1P1D, 1,000 requests at 4 req/s</td><td>4.3 ms</td><td>11.3 ms</td><td>1.3 ms</td><td>99 ms</td></tr>
+<tr><td>Colocated x2, 1,000 requests at 4 req/s</td><td>4.5 ms</td><td>11.5 ms</td><td>0.4 ms</td><td>99 ms</td></tr>
+<tr><td>2P2D, 10,000 requests at 8 req/s</td><td>52.2 ms</td><td>128.5 ms</td><td>7.5 ms</td><td>1326 ms</td></tr>
+</tbody></table></div>
+    <p class="src">Source: <a href="https://github.com/BrendanJamesLynskey/Rust_DES_Kernel/blob/main/examples/results.md">examples/results.md</a> in Rust_DES_Kernel</p>
+    <p>Two lessons. The conversion itself is small (under a millisecond for 1,000 requests). But the first version left the summary in Python, and Python's <code>summarise()</code> takes far longer than the simulation it summarises: about 100 ms against 4 ms. Port what profiling says is slow, and that includes the code around the engine. The summary is the biggest Rust cost too, because it sorts and sums every inter-token latency: one per output token.</p>
+</section>
+
+<section class="slide" id="slide-05">
+    <div class="slide-number">05</div>
+    <h2>Releasing the GIL</h2>
+    <p>CPython's global interpreter lock (GIL) lets one thread run Python bytecode at a time. Rust code that touches no Python objects does not need it, and can say so. Then other Python threads keep running, including other calls into the same simulator.</p>
+    <div class="code-block">
+        <div class="code-header">src/python.rs: py.detach releases the GIL for the whole run <a class="src-link" href="https://github.com/BrendanJamesLynskey/Rust_DES_Kernel/blob/main/src/python.rs">source</a></div>
+        <pre><code><span class="cm">/// Run one simulation. Returns (per-request stamps, summary JSON, events processed,</span>
+<span class="cm">/// seconds simulating, seconds summarising).</span>
+#[pyfunction]
+#[<span class="fn">pyo3</span>(signature = (config_json, rows, with_summary=<span class="kw">true</span>))]
+<span class="kw">fn</span> <span class="fn">simulate_json</span>(
+    py: <span class="type">Python</span>&lt;'_&gt;,
+    config_json: &amp;str,
+    rows: <span class="type">Vec</span>&lt;<span class="type">Row</span>&gt;,
+    with_summary: bool,
+) -&gt; <span class="type">PyResult</span>&lt;<span class="type">Output</span>&gt; {
+    <span class="kw">let</span> spec = <span class="fn">spec</span>(config_json)?;
+    <span class="cm">// The GIL is released for the whole run: nothing in here touches Python.</span>
+    py.<span class="fn">detach</span>(|| <span class="fn">run_one</span>(&amp;spec, &amp;rows, with_summary))
+        .<span class="fn">map_err</span>(<span class="type">PyValueError</span>::new_err)
+}</code></pre>
+    </div>
+    <ul>
+        <li><strong>The compiler enforces it.</strong> The closure passed to <code>detach</code> must be <code>Send</code> and cannot use the <code>Python</code> token, so it cannot touch a Python object by mistake. That is why the inputs are converted to plain Rust data first.</li>
+        <li><strong>Two ways to use it:</strong> ordinary Python threads calling <code>rust_des.simulate</code>, or one call to <code>simulate_many</code>, which runs a batch on rayon's thread pool.</li>
+    </ul>
+    <div class="table-wrap"><table>
+<thead><tr><th>What</th><th>Runs</th><th>Wall time</th><th>Speed-up over sequential</th></tr></thead>
+<tbody>
+<tr><td>Rust via PyO3, sequential</td><td>8 x 4,000 requests</td><td>0.460 s</td><td>1.0x</td></tr>
+<tr><td>Rust via PyO3, 8 Python threads (GIL released)</td><td>8 x 4,000 requests</td><td>0.167 s</td><td>2.8x</td></tr>
+<tr><td>Rust <code>simulate_many</code> (rayon, one call)</td><td>8 x 4,000 requests</td><td>0.175 s</td><td>2.6x</td></tr>
+<tr><td>Python SimPy, sequential</td><td>4 x 1,000 requests</td><td>1.05 s</td><td>1.0x</td></tr>
+<tr><td>Python SimPy, 4 threads (GIL held)</td><td>4 x 1,000 requests</td><td>2.70 s</td><td>0.4x</td></tr>
+<tr><td>Python SimPy, 4 processes</td><td>4 x 1,000 requests</td><td>0.31 s</td><td>3.3x</td></tr>
+</tbody></table></div>
+    <p class="src">Source: <a href="https://github.com/BrendanJamesLynskey/Rust_DES_Kernel/blob/main/examples/results.md">examples/results.md</a> in Rust_DES_Kernel</p>
+    <p>SimPy holds the GIL, so four threads are slower than one (they contend for the lock); only processes help it. The Rust rows reach about 3&times; on this 4-core, 8-thread machine. On the free-threaded build of CPython there is no GIL to release; PyO3 0.28 and later declare modules safe for it by default (<code>gil_used = true</code> opts out), but an abi3 wheel does not cover that build, which has its own ABI (<a href="https://pyo3.rs/latest/free-threading.html">PyO3 guide</a>).</p>
+</section>
+
+<section class="slide" id="slide-06">
+    <div class="slide-number">06</div>
+    <h2>Bit-Exact: The Parity Checklist</h2>
+    <p>"Agrees to within a tolerance" hides bugs: a wrong tie-break or an off-by-one in batching changes results by less than the tolerance on most workloads. Identical answers rule out everything at once, and they are achievable, because IEEE 754 arithmetic is deterministic. What makes two programs differ is doing different operations. Everything that had to match:</p>
+    <div class="table-wrap"><table>
+        <thead><tr><th>Item</th><th>Python does</th><th>So the Rust does</th></tr></thead>
+        <tbody>
+            <tr><td>Operation order</td><td><code>a * b * c</code> is <code>(a * b) * c</code></td><td>The same expression, never "simplified"</td></tr>
+            <tr><td>Exact integers</td><td>FLOP counts are unbounded ints until they meet a float</td><td><code>i128</code>, converted at the same point (round to nearest even, as Python does)</td></tr>
+            <tr><td>Event order at equal times</td><td>SimPy: priority, then scheduling order</td><td>The kernel's (time, priority, sequence) rule (deck 01, slide 03)</td></tr>
+            <tr><td>Timeouts</td><td><code>env.timeout(max(0, a - now))</code> fires at <code>now + (a - now)</code></td><td>The same sum, which is not always exactly <code>a</code></td></tr>
+            <tr><td>Trigger once</td><td>A triggered event is not triggered again</td><td>The <code>wake_triggered</code> flag (deck 01, slide 07)</td></tr>
+            <tr><td>Means</td><td><code>statistics.fmean</code> sums with <code>math.fsum</code></td><td>A port of CPython's <code>fsum</code></td></tr>
+            <tr><td>Rounding and division</td><td><code>round()</code> is half-to-even; float <code>//</code> is fmod-based</td><td><code>round_ties_even</code>; a port of CPython's floor division</td></tr>
+            <tr><td>Random numbers</td><td>MT19937 with Python's seeding and variates</td><td>A port (slide 07)</td></tr>
+            <tr><td>Transcendentals</td><td><code>log</code>, <code>exp</code>, <code>pow</code> from the C library</td><td>Rust's <code>ln</code>, <code>exp</code>, <code>powf</code> call the same libm on Linux; tested equal there</td></tr>
+        </tbody>
+    </table></div>
+</section>
+
+<section class="slide" id="slide-07">
+    <div class="slide-number">07</div>
+    <h2>Reproducing Python's Random Numbers</h2>
+    <p>A port that cannot generate the same workload can only be tested on workloads passed in from Python. Reproducing <code>random.Random</code> removes that limit, and it is less work than it sounds: CPython uses the Mersenne Twister (MT19937), seeds it with <code>init_by_array</code>, and builds the variates in pure Python.</p>
+    <div class="code-block">
+        <div class="code-header">src/pyrand.rs: random() takes 27 + 26 bits from two 32-bit outputs <a class="src-link" href="https://github.com/BrendanJamesLynskey/Rust_DES_Kernel/blob/main/src/pyrand.rs">source</a></div>
+        <pre><code><span class="cm">/// `random()`: a float in [0, 1) with 53 random bits.</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="fn">random</span>(&amp;<span class="kw">mut</span> <span class="kw">self</span>) -&gt; f64 {
+    <span class="kw">let</span> a = (<span class="kw">self</span>.<span class="fn">next_u32</span>() &gt;&gt; <span class="num">5</span>) <span class="kw">as</span> f64;
+    <span class="kw">let</span> b = (<span class="kw">self</span>.<span class="fn">next_u32</span>() &gt;&gt; <span class="num">6</span>) <span class="kw">as</span> f64;
+    (a * <span class="num">67_108_864.0</span> + b) * (<span class="num">1.0</span> / <span class="num">9_007_199_254_740_992.0</span>)
+}</code></pre>
+    </div>
+    <div class="code-block">
+        <div class="code-header">src/pyrand.rs: Kinderman and Monahan, line for line from random.py <a class="src-link" href="https://github.com/BrendanJamesLynskey/Rust_DES_Kernel/blob/main/src/pyrand.rs">source</a></div>
+        <pre><code><span class="cm">/// `normalvariate(mu, sigma)`: Kinderman and Monahan's ratio-of-uniforms method.</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="fn">normalvariate</span>(&amp;<span class="kw">mut</span> <span class="kw">self</span>, mu: f64, sigma: f64) -&gt; f64 {
+    <span class="kw">let</span> nv_magicconst = <span class="num">4.0</span> * (-<span class="num">0.5f64</span>).<span class="fn">exp</span>() / <span class="num">2.0f64</span>.<span class="fn">sqrt</span>();
+    <span class="kw">loop</span> {
+        <span class="kw">let</span> u1 = <span class="kw">self</span>.<span class="fn">random</span>();
+        <span class="kw">let</span> u2 = <span class="num">1.0</span> - <span class="kw">self</span>.<span class="fn">random</span>();
+        <span class="kw">let</span> z = nv_magicconst * (u1 - <span class="num">0.5</span>) / u2;
+        <span class="kw">let</span> zz = z * z / <span class="num">4.0</span>;
+        <span class="kw">if</span> zz &lt;= -u2.<span class="fn">ln</span>() {
+            <span class="kw">return</span> mu + z * sigma;
+        }
+    }
+}</code></pre>
+    </div>
+    <ul>
+        <li><strong>Seeding.</strong> An integer seed is split into 32-bit words, least significant first, and fed to <code>init_by_array</code>, which is why <code>Random(5)</code> and <code>Random(2**40 + 7)</code> both work.</li>
+        <li><strong>Tested against CPython</strong> with values printed by Python 3.12, and end to end: the Rust generator emits exactly the rows of <code>poisson_workload</code> for four seeds and 500 requests each (<code>test_workload_generator_reproduces_python_random</code>).</li>
+        <li><strong>Lognormal lengths</strong> also need <code>round()</code> (half to even, not Rust's default <code>round</code>, which rounds halves away from zero) and Python's clamp order.</li>
+    </ul>
+</section>
+
+<section class="slide" id="slide-08">
+    <div class="slide-number">08</div>
+    <h2>Three Traps That Cost One ulp</h2>
+    <p>Each of these produced, or would have produced, a difference in the last bit of some result. Each was found by a test, not by reading the code.</p>
+    <div class="diagram-grid cols-3">
+        <div class="diagram-panel accent-border"><h4>1. <code>fmean</code> is not a loop</h4><p><code>statistics.fmean</code> calls <code>math.fsum</code>, which is correctly rounded. A left-to-right loop over ten 0.1s gives 0.9999999999999999; <code>fsum</code> gives 1.0. Python 3.12's built-in <code>sum()</code> is compensated too. The port carries CPython's <code>fsum</code> algorithm, now pinned by 804 CPython-computed cases.</p></div>
+        <div class="diagram-panel accent-border"><h4>2. JSON parsing</h4><p><code>serde_json</code>'s default float parser is fast but not always correctly rounded. The golden test (Python results stored as JSON) failed with timestamps one ulp apart, because stored arrival times had been read back one ulp off. The <code>float_roundtrip</code> feature fixes it.</p></div>
+        <div class="diagram-panel accent-border"><h4>3. Port the expression, not the intent</h4><p>Python's power-cap solver writes a cube root as <code>abs(x) ** (1 / 3)</code>. Rust's <code>f64::cbrt</code> is a different function. The port calls <code>powf(1.0 / 3.0)</code>, the same libm <code>pow</code>.</p></div>
+    </div>
+    <div class="code-block">
+        <div class="code-header">snippets/t02/cbrt_vs_pow: how often the two disagree <a class="src-link" href="https://github.com/BrendanJamesLynskey/SimEng_Hub_Toolkit/blob/main/snippets/t02/cbrt_vs_pow/src/main.rs">source</a></div>
+        <pre><code><span class="kw">fn</span> <span class="fn">main</span>() {
+    <span class="kw">let</span> (<span class="kw">mut</span> differ, <span class="kw">mut</span> total) = (0u32, 0u32);
+    <span class="kw">let</span> <span class="kw">mut</span> x = 1e-<span class="num">3_f64</span>;
+    <span class="kw">while</span> x &lt; <span class="num">1e6</span> {
+        total += <span class="num">1</span>;
+        <span class="kw">if</span> x.<span class="fn">cbrt</span>() != x.<span class="fn">powf</span>(<span class="num">1.0</span> / <span class="num">3.0</span>) {
+            differ += <span class="num">1</span>;
+        }
+        x *= <span class="num">1.000123</span>; <span class="cm">// a geometric sweep over nine decades</span>
+    }
+    <span class="mac">println!</span>(<span class="str">"{differ} of {total} values differ"</span>);
+    <span class="mac">println!</span>(
+        <span class="str">"0.001: cbrt {:?}, powf(1/3) {:?}"</span>,
+        <span class="num">0.001f64</span>.<span class="fn">cbrt</span>(),
+        <span class="num">0.001f64</span>.<span class="fn">powf</span>(<span class="num">1.0</span> / <span class="num">3.0</span>)
+    );
+}</code></pre>
+    </div>
+    <div class="code-block"><div class="code-header">Recorded output (snippets/RESULTS.md)</div><pre><code>100783 of 168493 values differ
+0.001: cbrt 0.1, powf(1/3) 0.10000000000000002</code></pre></div>
+    <div class="callout">
+        <div class="callout-label">A fourth trap, in the tests</div>
+        <p>A differential test that reused a workload through <code>dataclasses.replace</code> failed on the colocated case. The port was right: <code>replace</code> makes a shallow copy, so the two Python runs shared each request's list of inter-token latencies. Build a fresh workload for every run (deck 06, slide 02).</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-09">
+    <div class="slide-number">09</div>
+    <h2>Testing the Port: Golden and Differential</h2>
+    <p>Two complementary checks, both demanding identical timestamps and an identical summary dictionary:</p>
+    <div class="diagram-grid cols-2">
+        <div class="diagram-panel accent-border"><h4>Golden files (<code>tests/golden.rs</code>)</h4><p>Fourteen Python runs stored as JSON, replayed by <code>cargo test</code>, plus four Python-generated workloads the Rust generator must reproduce. No Python needed, so they run in every Rust build. They cover every hardware preset, link and power-cap mode, fixed-length requests (simultaneous events), bursty arrivals, two KV transfers landing together on an idle decoder, and a tight KV budget with rejections. Several of these were added because mutation testing showed no Rust test reached those paths (<a href="https://brendanjameslynskey.github.io/SimEng_06_Testing_Frameworks/#slide-09">deck 06, slide 09</a>)</p></div>
+        <div class="diagram-panel accent-border"><h4>Live differential (<code>pytests/</code>)</h4><p>The Python simulator in the loop: ten named configurations, ties, bursts, rejections and single-token outputs, plus 25 Hypothesis-generated configurations per run (mode, pool sizes, link, channels, rate, seed, power cap, DVFS).</p></div>
+    </div>
+    <div class="code-block">
+        <div class="code-header">pytests/test_differential.py: "identical" means every stamp and the whole summary <a class="src-link" href="https://github.com/BrendanJamesLynskey/Rust_DES_Kernel/blob/main/pytests/test_differential.py">source</a></div>
+        <pre><code><span class="kw">def</span> <span class="fn">assert_identical</span>(py, rs):
+    <span class="kw">for</span> j, name <span class="kw">in</span> <span class="fn">enumerate</span>(<span class="type">STAMPS</span>):
+        a = [<span class="fn">getattr</span>(r, name) <span class="kw">for</span> r <span class="kw">in</span> py.requests]
+        b = [s[j] <span class="kw">for</span> s <span class="kw">in</span> rs.stamps]
+        <span class="kw">if</span> a != b:
+            k = <span class="fn">next</span>(i <span class="kw">for</span> i, (x, y) <span class="kw">in</span> <span class="fn">enumerate</span>(<span class="fn">zip</span>(a, b)) <span class="kw">if</span> x != y)
+            pytest.<span class="fn">fail</span>(f<span class="str">"{name} differs first at request {k}: python {a[k]!r} rust {b[k]!r}"</span>)
+    <span class="kw">assert</span> <span class="fn">normalise</span>(<span class="fn">summarise</span>(py)) == rs.summary</code></pre>
+    </div>
+    <div class="table-wrap"><table>
+<thead><tr><th>Configuration</th><th>Requests</th><th>Timestamps compared</th><th>Differing</th><th>Summary dict identical</th></tr></thead>
+<tbody>
+<tr><td>1P1D, InfiniBand NDR</td><td>1,000</td><td>6,000</td><td>0</td><td>yes</td></tr>
+<tr><td>2P2D, 25 GbE, 2 channels</td><td>1,000</td><td>6,000</td><td>0</td><td>yes</td></tr>
+<tr><td>Colocated, 2 instances</td><td>1,000</td><td>4,000</td><td>0</td><td>yes</td></tr>
+<tr><td>1P1D, 350 W cap + DVFS</td><td>1,000</td><td>6,000</td><td>0</td><td>yes</td></tr>
+<tr><td>Colocated, 300 W cap</td><td>1,000</td><td>4,000</td><td>0</td><td>yes</td></tr>
+<tr><td>Fixed lengths (simultaneous events)</td><td>1,000</td><td>6,000</td><td>0</td><td>yes</td></tr>
+</tbody></table></div>
+    <p class="src">Source: <a href="https://github.com/BrendanJamesLynskey/Rust_DES_Kernel/blob/main/examples/results.md">examples/results.md</a> in Rust_DES_Kernel</p>
+    <p>When a difference appears, the message names the first request and stamp that differ, which usually points straight at the event-order rule involved.</p>
+</section>
+
+<section class="slide" id="slide-10">
+    <div class="slide-number">10</div>
+    <h2>Measured: Speed-Ups</h2>
+    <div class="table-wrap"><table>
+<thead><tr><th>Workload</th><th>Python SimPy</th><th>Python fast path</th><th>Rust core</th><th>Rust via PyO3 (total)</th><th>Core speed-up vs SimPy</th><th>vs fast path</th><th>Rust events/s</th><th>SimPy events/s</th></tr></thead>
+<tbody>
+<tr><td>1P1D, 1,000 requests at 4 req/s</td><td>0.264 s</td><td>0.132 s</td><td>4.3 ms</td><td>16.9 ms</td><td>62x</td><td>31x</td><td>4.73 M</td><td>92 k</td></tr>
+<tr><td>Colocated x2, 1,000 requests at 4 req/s</td><td>0.306 s</td><td>n/a</td><td>4.5 ms</td><td>16.4 ms</td><td>69x</td><td>n/a</td><td>6.05 M</td><td>88 k</td></tr>
+<tr><td>2P2D, 10,000 requests at 8 req/s</td><td>2.753 s</td><td>1.494 s</td><td>52.2 ms</td><td>188.2 ms</td><td>53x</td><td>29x</td><td>3.91 M</td><td>89 k</td></tr>
+</tbody></table></div>
+    <p class="src">Source: <a href="https://github.com/BrendanJamesLynskey/Rust_DES_Kernel/blob/main/examples/results.md">examples/results.md</a> in Rust_DES_Kernel</p>
+    <ul>
+        <li><strong>53 to 69&times; over SimPy, 29 to 31&times; over the Python fast path</strong>, for the engine alone. Through PyO3, including the Rust summary and the conversions, a 1,000-request run takes about 17 ms instead of 0.36 s (SimPy plus <code>summarise()</code>).</li>
+        <li><strong>Events per second</strong> are not comparable one to one: SimPy also processes process start-ups, resource grants and releases, so it handles more events for the same model.</li>
+        <li><strong>The largest run gains least</strong> (53&times;), and Rust's event rate drops there too (3.91 M/s), so each event does more work in that workload. Profiling would say why (deck 11).</li>
+    </ul>
+</section>
+
+<section class="slide" id="slide-11">
+    <div class="slide-number">11</div>
+    <h2>Interactive: What Should You Port?</h2>
+    <p>Amdahl's law with measured parts. Choose a workload and decide where each stage runs. Times come from <code>examples/results.md</code>; the boundary cost applies whenever Rust is involved. <a href="https://brendanjameslynskey.github.io/InfSim_08_Accelerating_Simulators/#slide-14">LLM Inference Simulators 08, slide 14</a> has the general version.</p>
+    <div class="control-panel">
+        <div class="sim-grid">
+            <div class="control-row"><label for="pp-w">Workload</label><select id="pp-w"></select></div>
+            <div class="control-row"><label for="pp-e">Engine</label><select id="pp-e"><option value="py">Python SimPy</option><option value="fast">Python fast path</option><option value="rs" selected>Rust</option></select></div>
+            <div class="control-row"><label for="pp-s">Summary</label><select id="pp-s"><option value="py" selected>Python summarise()</option><option value="rs">Rust summarise</option></select></div>
+            <div class="control-row"><label for="pp-n">Runs per night</label><input type="range" id="pp-n" min="2" max="6" step="1" value="4"><span class="val" id="pp-n-val"></span></div>
+        </div>
+        <div class="metric-grid" id="pp-m"></div>
+        <div class="canvas-wrap"><svg id="pp-svg" viewBox="0 0 720 150" width="720" height="150" xmlns="http://www.w3.org/2000/svg"></svg></div>
+        <div class="result-box" id="pp-r"></div>
+    </div>
+    <script>
+    (function () {
+        const SPEED = [["Workload", "Python SimPy", "Python fast path", "Rust core", "Rust via PyO3 (total)", "Core speed-up vs SimPy", "vs fast path", "Rust events/s", "SimPy events/s"], ["1P1D, 1,000 requests at 4 req/s", "0.264 s", "0.132 s", "4.3 ms", "16.9 ms", "62x", "31x", "4.73 M", "92 k"], ["Colocated x2, 1,000 requests at 4 req/s", "0.306 s", "n/a", "4.5 ms", "16.4 ms", "69x", "n/a", "6.05 M", "88 k"], ["2P2D, 10,000 requests at 8 req/s", "2.753 s", "1.494 s", "52.2 ms", "188.2 ms", "53x", "29x", "3.91 M", "89 k"]];  // from Rust_DES_Kernel/examples/results.md
+        const SPLIT = [["Workload", "Rust simulate", "Rust summarise", "Boundary (conversion)", "Python `summarise()`"], ["1P1D, 1,000 requests at 4 req/s", "4.3 ms", "11.3 ms", "1.3 ms", "99 ms"], ["Colocated x2, 1,000 requests at 4 req/s", "4.5 ms", "11.5 ms", "0.4 ms", "99 ms"], ["2P2D, 10,000 requests at 8 req/s", "52.2 ms", "128.5 ms", "7.5 ms", "1326 ms"]];  // from Rust_DES_Kernel/examples/results.md
+        const $ = id => document.getElementById(id);
+        const sec = s => { const m = /([\d.]+)\s*(ms|s)/.exec(s); return m ? (+m[1]) * (m[2] === 'ms' ? 1e-3 : 1) : null; };
+        const rows = SPEED.slice(1).map((r, i) => ({ name: r[0], py: sec(r[1]), fast: sec(r[2]), rs: sec(r[3]),
+            rsSum: sec(SPLIT[i + 1][2]), boundary: sec(SPLIT[i + 1][3]), pySum: sec(SPLIT[i + 1][4]) }));
+        rows.forEach((r, i) => $('pp-w').add(new Option(r.name, i)));
+        const fmt = s => s >= 1 ? s.toFixed(2) + ' s' : (s * 1e3).toFixed(1) + ' ms';
+        const dur = s => s < 60 ? s.toFixed(0) + ' s' : s < 3600 ? (s / 60).toFixed(1) + ' min' : (s / 3600).toFixed(1) + ' h';
+        function draw() {
+            const r = rows[+$('pp-w').value];
+            let e = $('pp-e').value;
+            if (e === 'fast' && r.fast === null) { $('pp-e').value = e = 'py'; }
+            const eng = r[e], sum = $('pp-s').value === 'rs' ? r.rsSum : r.pySum;
+            const usesRust = e === 'rs' || $('pp-s').value === 'rs';
+            const parts = [['engine', eng], ['summary', sum], ['boundary', usesRust ? r.boundary : 0]];
+            const total = parts.reduce((a, p) => a + p[1], 0), base = r.py + r.pySum;
+            const n = Math.pow(10, +$('pp-n').value); $('pp-n-val').textContent = n.toLocaleString();
+            const cell = (l, v) => `<div class="metric"><div class="metric-label">${l}</div><div class="metric-value">${v}</div></div>`;
+            $('pp-m').innerHTML = cell('Per run', fmt(total)) + cell('Speed-up vs all Python', (base / total).toFixed(1) + 'x')
+                + cell('Largest part', parts.slice().sort((a, b) => b[1] - a[1])[0][0]) + cell(n.toLocaleString() + ' runs, one core', dur(n * total));
+            const W = 680, colours = { engine: '#aabd59', summary: '#e3b174', boundary: '#97cdc6' };
+            let x = 20, svg = `<text x="20" y="18" fill="#a2978b" font-family="Geist Mono, monospace" font-size="11">bar = this choice; outline = everything in Python (${fmt(base)})</text>`;
+            svg += `<rect x="20" y="90" width="${W}" height="26" fill="none" stroke="#a2978b" stroke-dasharray="4 3"/>`;
+            parts.forEach(([k, v]) => { const w = W * v / base; if (w > 0) { svg += `<rect x="${x}" y="40" width="${Math.max(w, 0.8)}" height="26" fill="${colours[k]}"/>`; x += w; } });
+            let lx = 20;
+            parts.forEach(([k, v]) => { svg += `<rect x="${lx}" y="128" width="10" height="10" fill="${colours[k]}"/><text x="${lx + 14}" y="137" fill="#efe8dc" font-family="Geist Mono, monospace" font-size="11">${k} ${fmt(v)}</text>`; lx += 200; });
+            svg += `<text x="20" y="84" fill="#a2978b" font-family="Geist Mono, monospace" font-size="10">all-Python baseline: SimPy + summarise()</text>`;
+            $('pp-svg').innerHTML = svg;
+            const engOnly = (r.py + r.pySum) / (r.rs + r.pySum + r.boundary);
+            $('pp-r').innerHTML = `<span class="line-label">porting only the engine</span> gives ${engOnly.toFixed(1)}x, because the Python summary is then ${(100 * r.pySum / (r.rs + r.pySum + r.boundary)).toFixed(0)}% of what is left.`
+                + ` <span class="line-label">porting both</span> gives ${((r.py + r.pySum) / (r.rs + r.rsSum + r.boundary)).toFixed(0)}x.`;
+        }
+        ['pp-w', 'pp-e', 'pp-s', 'pp-n'].forEach(id => $(id).addEventListener('input', draw));
+        draw();
+    })();
+    </script>
+</section>
+
+<section class="slide" id="slide-12">
+    <div class="slide-number">12</div>
+    <h2>Packaging and CI</h2>
+    <ul>
+        <li><strong>One wheel for every Python.</strong> PyO3's <code>abi3-py310</code> feature builds against the stable ABI, so one wheel per platform serves CPython 3.10 and later.</li>
+        <li><strong>The core builds without Python.</strong> The PyO3 code is behind a <code>python</code> feature that maturin switches on; <code>cargo test</code> and the CLI never link against Python.</li>
+        <li><strong>CI runs both halves.</strong> One job: rustfmt, clippy, <code>cargo test</code> (including the golden files) and a CLI smoke test. The other: clippy on the bindings, <code>maturin develop</code>, and the differential tests with the Python reference installed from its repository.</li>
+    </ul>
+    <div class="code-block">
+        <div class="code-header">.github/workflows/ci.yml: the Python half of CI <a class="src-link" href="https://github.com/BrendanJamesLynskey/Rust_DES_Kernel/blob/main/.github/workflows/ci.yml">source</a></div>
+        <pre><code>python:
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout<span class="mac">@v4</span>
+    - uses: dtolnay/rust-toolchain<span class="mac">@stable</span>
+      with:
+        components: clippy
+    - uses: Swatinem/rust-cache<span class="mac">@v2</span>
+    - uses: actions/setup-python<span class="mac">@v5</span>
+      with:
+        python-version: <span class="str">"3.12"</span>
+    - name: Clippy (PyO3 bindings)
+      run: cargo clippy --features python -- -D warnings
+    - name: Build the extension and install the Python reference simulator
+      run: |
+        python -m venv .venv
+        .venv/bin/pip install maturin
+        .venv/bin/maturin develop --release -E dev
+    - name: Differential tests against Disaggregated_Inference_Sim
+      run: .venv/bin/pytest pytests</code></pre>
+    </div>
+    <div class="callout">
+        <div class="callout-label">Exactness is a platform property</div>
+        <p>Bit-exactness through <code>ln</code>, <code>exp</code> and <code>pow</code> holds when both languages use the same C library, which is the case on Linux with glibc (tested locally and in GitHub Actions). On another platform the Hypothesis-generated power-capped cases fall back to a relative tolerance of 10<sup>&minus;12</sup>; everything else stays exact.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-13">
+    <div class="slide-number">13</div>
+    <h2>What to Take Away</h2>
+    <ul>
+        <li><strong>Port last, port the hot path, keep the reference.</strong> The Python model is what makes the Rust trustworthy.</li>
+        <li><strong>Keep the Rust core free of Python types</strong>; make the boundary coarse and plain; measure what it costs.</li>
+        <li><strong>Release the GIL</strong> with <code>py.detach</code> (formerly <code>allow_threads</code>): Python threads then run simulations in parallel.</li>
+        <li><strong>Aim for bit-exact</strong>, not "close": copy operation order, event order, <code>fsum</code>, rounding, the random stream and the exact expressions.</li>
+        <li><strong>Test it two ways</strong>: golden files that need no Python, and a live differential suite with generated configurations.</li>
+        <li><strong>Profile the whole call</strong>: here the summary, not the engine, was the next bottleneck.</li>
+    </ul>
+    <ul class="res-list">
+        <li><a href="https://github.com/BrendanJamesLynskey/Rust_DES_Kernel">Rust_DES_Kernel</a><span class="what">The port, its bindings, its tests and <code>examples/results.md</code>.</span></li>
+        <li><a href="https://pyo3.rs">The PyO3 user guide</a> and <a href="https://www.maturin.rs">maturin documentation</a><span class="what">Check them for the version you use; names changed in 0.26.</span></li>
+        <li><a href="https://brendanjameslynskey.github.io/SimEng_06_Testing_Frameworks/">Deck 06: Testing Frameworks for Simulators</a><span class="what">Golden, differential, property-based and mutation testing in depth.</span></li>
+        <li><a href="https://brendanjameslynskey.github.io/InfSim_08_Accelerating_Simulators/">LLM Inference Simulators 08: Accelerating Simulators</a><span class="what">Everything to try before a rewrite.</span></li>
+        <li><a href="https://github.com/BrendanJamesLynskey/Interview_Rust">Interview_Rust</a><span class="what">Rust interview questions.</span></li>
+    </ul>
+</section>
+
+<!-- ════════════════════════════════════ Footer ════════════════════════════════════ -->
+<footer class="footer">
+    <p>Part of the <a href="https://github.com/BrendanJamesLynskey/SimEng_Hub_Toolkit">Simulation Engineering Toolkit series</a> &middot; <a href="https://brendanjameslynskey.github.io/SimEng_Hub_Toolkit/#glossary">glossary: every concept and where it is explained</a> &middot; code: <a href="https://github.com/BrendanJamesLynskey/Rust_DES_Kernel">Rust_DES_Kernel</a></p>
+    <p style="margin-top: 0.5rem; font-size: 0.8rem;"><a href="https://brendanjameslynskey.github.io/SimEng_01_Rust_for_Simulation_Engineers/">&larr; 01 Rust for Simulation Engineers</a> &nbsp;&middot;&nbsp; <a href="https://brendanjameslynskey.github.io/SimEng_06_Testing_Frameworks/">06 Testing Frameworks for Simulators &rarr;</a></p>
+    <p style="margin-top: 0.5rem; font-size: 0.8rem;">Interview questions: <a href="https://github.com/BrendanJamesLynskey/Interview_Rust">Interview_Rust</a> &middot; sister series: <a href="https://github.com/BrendanJamesLynskey/LLM_Hub_Inference_Simulators">LLM Inference Simulators</a> &middot; <a href="https://github.com/BrendanJamesLynskey/FHE_Hub_Accelerator_Simulators">FHE Accelerator Simulators</a></p>
+</footer>
+
+<script>
+    // Smooth scroll for TOC links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+
+    // Subtle fade-in on scroll
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = '1';
+                entry.target.style.transform = 'translateY(0)';
+            }
+        });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('.slide').forEach(slide => {
+        slide.style.opacity = '0';
+        slide.style.transform = 'translateY(30px)';
+        slide.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+        observer.observe(slide);
+    });
+</script>
+
+</body>
+</html>
